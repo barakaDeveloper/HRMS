@@ -1,0 +1,220 @@
+/* Custom CSS Variables for Theming */
+        :root {
+            --g-deep: #031A09;
+            --g-spring: #316C40;
+            --g-poly: #294E28;
+            --lime: #E2F87B;
+            --cream: #FDFFF6;
+            --card-border: rgba(255, 255, 255, 0.04);
+        }
+
+        /* Dark-mode default look */
+        html.dark {
+            --bg: #0e1515;
+            --panel: #0f1a1a;
+            --muted: #9aa6a6;
+            --accent-text: #dbeee0;
+            --border-color: rgba(255, 255, 255, 0.04);
+            --hover-bg: rgba(255, 255, 255, 0.01);
+            --chip-bg: rgba(255, 255, 255, 0.02);
+            --scrollbar-thumb: rgba(255, 255, 255, 0.06);
+        }
+
+        /* Light theme - Enhanced visibility */
+        html:not(.dark) {
+            --bg: #f6f8fa;
+            --panel: #ffffff;
+            --muted: #4a5568;
+            --accent-text: #1a202c;
+            --border-color: rgba(0, 0, 0, 0.1);
+            --hover-bg: rgba(0, 0, 0, 0.04);
+            --chip-bg: rgba(0, 0, 0, 0.05);
+            --scrollbar-thumb: rgba(0, 0, 0, 0.2);
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg);
+            color: var(--accent-text);
+        }
+
+        /* Card styling */
+        .panel {
+            background: linear-gradient(180deg, var(--panel), color-mix(in srgb, var(--panel) 95%, black 5%));
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+        }
+
+        /* Light mode panel enhancement */
+        html:not(.dark) .panel {
+            background: var(--panel);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Subtle inner containers */
+        .chip {
+            background: var(--chip-bg);
+            border-radius: 10px;
+            padding: .5rem .75rem;
+            color: var(--muted);
+            font-size: .85rem;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .chip:hover {
+            background: var(--hover-bg);
+            transform: translateY(-1px);
+        }
+
+        /* Small dot legend colors */
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 9999px;
+            display: inline-block;
+            margin-right: .5rem;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 8px;
+        }
+
+        /* Sidebar styling */
+        .sidebar {
+            transition: left 0.3s ease;
+        }
+
+        /* Navigation links */
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            color: var(--muted);
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .nav-link:hover {
+            background: var(--hover-bg);
+            color: var(--accent-text);
+        }
+
+        .nav-link.active {
+            background: var(--chip-bg);
+            color: var(--accent-text);
+        }
+
+        html:not(.dark) .nav-link.active {
+            background: rgba(49, 108, 64, 0.12);
+            color: var(--g-spring);
+            font-weight: 500;
+        }
+
+        /* Logo text color fix for light mode */
+        .logo-text {
+            color: var(--accent-text);
+        }
+
+        /* Responsive mobile menu */
+        @media (max-width: 1024px) {
+            .sidebar {
+                position: fixed;
+                left: -100%;
+                top: 0;
+                height: 100vh;
+                z-index: 50;
+                width: 18rem;
+            }
+
+            .sidebar.open {
+                left: 0;
+            }
+
+            .overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 40;
+            }
+
+            .overlay.active {
+                display: block;
+            }
+        }
+
+        /* Profile dropdown */
+        .dropdown-menu {
+            display: none;
+        }
+
+        .dropdown-menu.active {
+            display: block;
+        }
+
+        /* Laravel Dropdown Styles */
+        [x-cloak] {
+            display: none !important;
+        }
+
+        .dropdown {
+            position: relative;
+        }
+
+        .dropdown-content {
+            position: absolute;
+            right: 0;
+            margin-top: 0.5rem;
+            width: 12rem;
+            background: var(--panel);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            z-index: 50;
+            overflow: hidden;
+        }
+
+        html:not(.dark) .dropdown-content {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .dropdown-link {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--accent-text);
+            transition: background 0.2s ease;
+            text-decoration: none;
+        }
+
+        .dropdown-link:hover {
+            background: var(--hover-bg);
+        }
+
+        /* Better input styling for light mode */
+        input[type="search"] {
+            background: var(--chip-bg);
+            border: 1px solid var(--border-color);
+            color: var(--accent-text);
+        }
+
+        input[type="search"]::placeholder {
+            color: var(--muted);
+        }
+
+        input[type="search"]:focus {
+            outline: 2px solid var(--g-spring);
+            outline-offset: 2px;
+        }
+
+  
