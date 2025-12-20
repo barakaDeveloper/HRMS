@@ -10,8 +10,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     navLinks.forEach(link => {
         link.addEventListener('click', function (e) {
-            // Don't intercept profile links
-            if (this.href.includes('/profile') || this.hasAttribute('data-no-spa')) {
+            // Don't intercept profile links or individual item pages
+            if (this.href.includes('/profile') || this.hasAttribute('data-no-spa') || (this.href.includes('/admin/') && this.href.split('/').length > 4)) {
                 return; // Allow normal navigation
             }
 
@@ -93,8 +93,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const section = event.state.section;
             const url = event.state.url || `/admin/${section}`;
 
-            // Don't handle profile pages
-            if (url.includes('/profile')) {
+            // Don't handle profile pages or individual item pages
+            if (url.includes('/profile') || (url.includes('/admin/') && url.split('/').length > 4)) {
                 window.location.href = url;
                 return;
             }
@@ -117,23 +117,29 @@ document.addEventListener('DOMContentLoaded', function () {
     const currentSection = getCurrentSectionFromURL();
     if (currentSection && !window.location.pathname.includes('/profile')) {
         const currentUrl = window.location.href;
-        loadSectionContent(currentSection, currentUrl);
+        // Don't load SPA content for individual item pages
+        if (!(currentUrl.includes('/admin/') && currentUrl.split('/').length > 4)) {
+            loadSectionContent(currentSection, currentUrl);
 
-        // Set active nav link
-        const activeLink = document.querySelector(`[data-section="${currentSection}"]`);
-        if (activeLink) {
-            navLinks.forEach(nav => nav.classList.remove('active'));
-            activeLink.classList.add('active');
+            // Set active nav link
+            const activeLink = document.querySelector(`[data-section="${currentSection}"]`);
+            if (activeLink) {
+                navLinks.forEach(nav => nav.classList.remove('active'));
+                activeLink.classList.add('active');
 
-            const sectionName = activeLink.querySelector('span').textContent;
-            if (pageTitle) {
-                pageTitle.textContent = sectionName;
+                const sectionName = activeLink.querySelector('span').textContent;
+                if (pageTitle) {
+                    pageTitle.textContent = sectionName;
+                }
             }
         }
     }
 
     function getCurrentSectionFromURL() {
         const path = window.location.pathname;
+        // Don't load SPA content for individual item pages (show/edit pages)
+        if (path.includes('/admin/employees/') && !path.includes('/profile') && path.split('/').length > 3) return null;
+        if (path.includes('/admin/departments/') && path.split('/').length > 3) return null;
         if (path.includes('/admin/employees') && !path.includes('/profile')) return 'employees';
         if (path.includes('/admin/dashboard')) return 'dashboard';
         if (path.includes('/admin/departments')) return 'departments';

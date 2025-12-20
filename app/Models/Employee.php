@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
 
 /**
  * Class Employee
@@ -144,13 +145,15 @@ class Employee extends Model
      *
      * @return int|null
      */
-    public function getAgeAttribute(): ?int
-    {
-        if (!$this->date_of_birth) {
-            return null;
-        }
-        return now()->diffInYears($this->date_of_birth);
+
+public function getAgeAttribute(): ?int
+{
+    if (!$this->date_of_birth) {
+        return null;
     }
+
+    return Carbon::parse($this->date_of_birth)->age;
+}
 
     /**
      * Get years of service

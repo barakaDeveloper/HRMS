@@ -8,6 +8,24 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $code
+ * @property string|null $description
+ * @property string|null $team_function
+ * @property int|null $employee_count
+ * @property string|null $color_scheme
+ * @property string|null $initial
+ * @property bool $is_active
+ * @property \Carbon\Carbon|null $created_at
+ * @property \Carbon\Carbon|null $updated_at
+ * @property \Carbon\Carbon|null $deleted_at
+ * @property-read int $professions_count
+ * @property-read float $progress_percentage
+ * @property-read string $initial_letter
+ * @property-read string $progress_bar_color
+ */
 class Department extends Model
 {
     use HasFactory, SoftDeletes;

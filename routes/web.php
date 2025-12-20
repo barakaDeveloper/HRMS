@@ -125,21 +125,21 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:Super Admin'])
     });
 
 
+    // Departments routes
+ Route::prefix('departments')->name('departments.')->group(function () {
+    Route::get('/', [DepartmentController::class, 'index'])->name('index');
+    Route::get('/create', [DepartmentController::class, 'create'])->name('create');
+    Route::post('/', [DepartmentController::class, 'store'])->name('store');
+    Route::get('/{department}', [DepartmentController::class, 'show'])->name('show');
+    Route::get('/{department}/edit', [DepartmentController::class, 'edit'])->name('edit');
+    Route::put('/{department}', [DepartmentController::class, 'update'])->name('update');
+    Route::delete('/{department}', [DepartmentController::class, 'destroy'])->name('destroy');
     
- // Departments routes - Update to include all CRUD operations
-    Route::prefix('departments')->name('departments.')->group(function () {
-        Route::get('/', [DepartmentController::class, 'index'])->name('index');
-        Route::get('/create', [DepartmentController::class, 'create'])->name('create');
-        Route::post('/', [DepartmentController::class, 'store'])->name('store');
-        Route::get('/{department}', [DepartmentController::class, 'show'])->name('show');
-        Route::get('/{department}/edit', [DepartmentController::class, 'edit'])->name('edit');
-        Route::put('/{department}', [DepartmentController::class, 'update'])->name('update');
-        Route::delete('/{department}', [DepartmentController::class, 'destroy'])->name('destroy');
-        
-        // Additional routes for managing professions
-        Route::post('/{department}/professions', [DepartmentController::class, 'addProfession'])->name('professions.add');
-        Route::delete('/{department}/professions/{profession}', [DepartmentController::class, 'removeProfession'])->name('professions.remove');
-    });
+    // Profession management routes
+    Route::post('/{department}/professions', [DepartmentController::class, 'addProfession'])->name('professions.add');
+    Route::put('/{department}/professions/{profession}', [DepartmentController::class, 'updateProfession'])->name('professions.update');
+    Route::delete('/{department}/professions/{profession}', [DepartmentController::class, 'removeProfession'])->name('professions.remove');
+});
 
 
 

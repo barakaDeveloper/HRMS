@@ -52,7 +52,7 @@ class DepartmentController extends Controller
 
         // Check if it's an AJAX request
         if (request()->ajax() || request()->wantsJson()) {
-            return view('admin.partials.department_stats', compact('departments', 'stats'))->render();
+            return response()->view('admin.partials.department_stats', compact('departments', 'stats'));
         }
         
         return view('admin.departments.index', compact('departments', 'stats'));
@@ -95,6 +95,7 @@ class DepartmentController extends Controller
             'employee_count' => 'nullable|integer|min:0',
             'color_scheme' => 'nullable|string|max:255',
             'initial' => 'nullable|string|max:2',
+            'is_active' => 'nullable|boolean',
         ];
 
         // Add profession validation rules if professions exist in request
@@ -132,7 +133,7 @@ class DepartmentController extends Controller
                 'employee_count' => $validated['employee_count'] ?? 0,
                 'color_scheme' => $validated['color_scheme'] ?? $this->getDefaultColor($validated['name']),
                 'initial' => $validated['initial'] ?? strtoupper(substr($validated['name'], 0, 2)),
-                'is_active' => true,
+                'is_active' => $validated['is_active'] ?? true, // Default to true if not provided
                 'created_by' => Auth::id(),
                 'updated_by' => Auth::id(),
             ]);
@@ -248,6 +249,7 @@ class DepartmentController extends Controller
             'employee_count' => 'nullable|integer|min:0',
             'color_scheme' => 'nullable|string|max:255',
             'initial' => 'nullable|string|max:2',
+            'is_active' => 'nullable|boolean',
         ];
 
         // Add profession validation rules if professions exist in request
@@ -288,6 +290,7 @@ class DepartmentController extends Controller
                 'employee_count' => $validated['employee_count'] ?? $department->employee_count,
                 'color_scheme' => $validated['color_scheme'] ?? $department->color_scheme,
                 'initial' => $validated['initial'] ?? $department->initial,
+                'is_active' => isset($validated['is_active']) ? (bool)$validated['is_active'] : $department->is_active,
                 'updated_by' => Auth::id(),
             ]);
 
@@ -335,11 +338,11 @@ class DepartmentController extends Controller
                     'success' => true,
                     'message' => 'Department updated successfully!',
                     'department' => $department->load('professions'),
-                    'redirect' => route('admin.departments.index')
+                    'redirect' => route('admin.departments.show', $department)
                 ]);
             }
 
-            return redirect()->route('admin.departments.index')
+            return redirect()->route('admin.departments.show', $department)
                 ->with('success', 'Department updated successfully!');
 
         } catch (\Exception $e) {
@@ -465,6 +468,59 @@ class DepartmentController extends Controller
     }
 
     /**
+     * Update a profession via AJAX.
+     */
+    public function updateProfession(Request $request, Department $department, DepartmentProfession $profession)
+    {
+        if (!Auth::check() || !$this->isAdmin(Auth::user())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access.'
+            ], 403);
+        }
+
+        // Verify the profession belongs to the department
+        if ($profession->department_id !== $department->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profession does not belong to this department.'
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $profession->update(array_merge(
+                $validator->validated(),
+                [
+                    'updated_by' => Auth::id(),
+                ]
+            ));
+
+            return response()->json([
+                'success' => true,
+                'profession' => $profession,
+                'message' => 'Profession updated successfully!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error updating profession: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Remove a profession from a department via AJAX.
      */
     public function removeProfession(Department $department, DepartmentProfession $profession)
@@ -540,11 +596,8 @@ class DepartmentController extends Controller
      */
     private function isAdmin($user)
     {
-        // Update with your actual admin check logic
-        // Example: Check if user has admin role
-        return $user->hasRole('Super Admin') || 
-               $user->hasRole('Admin') || 
-               $user->hasPermission('manage_departments') ||
-               $user->is_admin; // If you have an is_admin column
+        // Actual admin check based on your user model
+        return $user->hasRole('Super Admin') || $user->is_admin === true;
+    
     }
 }
