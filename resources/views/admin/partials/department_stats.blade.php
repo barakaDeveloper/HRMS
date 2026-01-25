@@ -133,10 +133,6 @@
 @if($departments && $departments->count() > 0)
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 department-grid">
     @foreach($departments as $department)
-    @php
-        $percentage = min(100, ($department->employee_count / 40) * 100);
-    @endphp
-    
     <div class="department-card panel p-5 hover:shadow-md transition-all duration-200 border border-[var(--border-color)]" 
          data-name="{{ strtolower($department->name) }}"
          data-status="{{ $department->is_active ? 'active' : 'inactive' }}">
@@ -178,10 +174,10 @@
         <div class="mb-4">
             <div class="flex justify-between text-xs text-[var(--muted)] mb-2">
                 <span>Team Members</span>
-                <span>{{ $department->employee_count }} employees</span>
+                <span>{{ $department->actual_employee_count ?? 0 }} employees</span>
             </div>
             <div class="w-full h-1.5 rounded-full bg-[var(--chip-bg)] overflow-hidden">
-                <div class="h-1.5 bg-gradient-to-r {{ $department->color_scheme ?? 'from-gray-500 to-gray-600' }} rounded-full" style="width: {{ $percentage }}%"></div>
+                <div class="h-1.5 bg-gradient-to-r {{ $department->color_scheme ?? 'from-gray-500 to-gray-600' }} rounded-full" style="width: {{ min(100, (($department->actual_employee_count ?? 0) / 40) * 100) }}%"></div>
             </div>
         </div>
         
@@ -278,13 +274,6 @@
                                 <input type="text" name="team_function" 
                                        class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]"
                                        placeholder="e.g., Revenue Generation Team">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-[var(--accent-text)] mb-2">Employee Count</label>
-                                <input type="number" name="employee_count" 
-                                       class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]"
-                                       min="0" value="0">
                             </div>
                         </div>
                         

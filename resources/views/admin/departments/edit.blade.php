@@ -100,11 +100,11 @@
                         <!-- Employee Count -->
                         <div>
                             <label for="employee_count" class="block text-sm font-semibold text-[var(--accent-text)] mb-2">Employee Count</label>
-                            <input type="number" id="employee_count" name="employee_count"
-                                   class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]"
-                                   min="0"
-                                   placeholder="Enter number of employees"
-                                   value="{{ old('employee_count', $department->employee_count) }}">
+                            <input type="number" id="employee_count" 
+                                   class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)] bg-[var(--chip-bg)] cursor-not-allowed"
+                                   readonly
+                                   value="{{ $department->actual_employee_count ?? 0 }}">
+                            <p class="text-xs text-[var(--muted)] mt-1">Automatically calculated from assigned employees</p>
                         </div>
 
                         <!-- Color Scheme -->
@@ -226,6 +226,14 @@
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
                             </span>
+                        </button>
+
+                        <button type="button" onclick="deleteDepartment({{ $department->id }})"
+                                class="w-full chip flex items-center justify-center gap-2 bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                            Delete Department
                         </button>
 
                         <a href="{{ route('admin.departments.show', $department) }}"
@@ -564,6 +572,89 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Delete department function
+function deleteDepartment(departmentId) {
+    Swal.fire({
+        title: 'Delete Department?',
+        text: 'This action cannot be undone. All associated data will be deleted.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Delete Department',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+        customClass: {
+            container: 'dark:bg-gray-800 dark:text-white',
+            popup: 'dark:bg-gray-800 dark:text-white border dark:border-gray-700',
+            title: 'dark:text-white',
+            htmlContainer: 'dark:text-gray-300',
+            confirmButton: 'dark:bg-red-600 dark:hover:bg-red-700',
+            cancelButton: 'dark:bg-gray-600 dark:hover:bg-gray-700'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const url = `/admin/departments/${departmentId}`;
+            
+            fetch(url, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: 'Deleted!',
+                        text: data.message || 'Department has been deleted successfully.',
+                        icon: 'success',
+                        confirmButtonColor: '#10b981',
+                        confirmButtonText: 'OK',
+                        customClass: {
+                            container: 'dark:bg-gray-800 dark:text-white',
+                            popup: 'dark:bg-gray-800 dark:text-white border dark:border-gray-700',
+                            title: 'dark:text-white'
+                        }
+                    }).then(() => {
+                        window.location.href = '{{ route("admin.departments.index") }}';
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error!',
+                        text: data.message || 'Failed to delete department.',
+                        icon: 'error',
+                        confirmButtonColor: '#d33',
+                        confirmButtonText: 'OK',
+                        customClass: {
+                            container: 'dark:bg-gray-800 dark:text-white',
+                            popup: 'dark:bg-gray-800 dark:text-white border dark:border-gray-700',
+                            title: 'dark:text-white'
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'An unexpected error occurred while deleting the department.',
+                    icon: 'error',
+                    confirmButtonColor: '#d33',
+                    confirmButtonText: 'OK',
+                    customClass: {
+                        container: 'dark:bg-gray-800 dark:text-white',
+                        popup: 'dark:bg-gray-800 dark:text-white border dark:border-gray-700',
+                        title: 'dark:text-white'
+                    }
+                });
+            });
+        }
+    });
+}
 </script>
 @endpush
 @endsection

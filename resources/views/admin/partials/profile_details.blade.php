@@ -302,9 +302,32 @@
                     
                     <div>
                         <label class="block text-sm font-medium text-[var(--muted)] mb-1">Total Earnings</label>
-                        <p class="chip bg-transparent border-none p-0 font-bold text-lg text-[var(--g-spring)]">
-                            {{ $employee->total_earnings ?? 'Not set' }}
-                        </p>
+                        @php
+                            $breakdown = $employee->total_earnings_by_currency;
+                        @endphp
+                        
+                        @if(count($breakdown) > 1)
+                            <div class="flex items-center gap-3 flex-wrap">
+                                @foreach($breakdown as $currency => $total)
+                                    @if(!$loop->first)
+                                        <span class="text-black font-bold text-lg">|</span>
+                                    @endif
+                                    <p class="chip bg-transparent border-none p-0 font-bold text-lg text-[var(--g-spring)]">
+                                        {{ $total }}
+                                    </p>
+                                @endforeach
+                            </div>
+                        @elseif(count($breakdown) > 0)
+                            <p class="chip bg-transparent border-none p-0 font-bold text-lg text-[var(--g-spring)]">
+                                @foreach($breakdown as $total)
+                                    {{ $total }}
+                                @endforeach
+                            </p>
+                        @else
+                            <p class="chip bg-transparent border-none p-0 font-bold text-lg text-[var(--g-spring)]">
+                                {{ $employee->total_earnings_with_symbol ?? 'Not set' }}
+                            </p>
+                        @endif
                     </div>
                     
                     <div>
@@ -557,21 +580,36 @@
                             
                             <div>
                                 <label class="block text-sm font-medium text-[var(--accent-text)] mb-2">Department *</label>
-                                <select name="department" required class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]">
+                                <select id="departmentSelect" name="department" required class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]">
                                     <option value="">Select Department</option>
-                                    <option value="Sales" {{ $employee->department == 'Sales' ? 'selected' : '' }}>Sales</option>
-                                    <option value="Reservations" {{ $employee->department == 'Reservations' ? 'selected' : '' }}>Reservations</option>
-                                    <option value="Logistics" {{ $employee->department == 'Logistics' ? 'selected' : '' }}>Logistics</option>
-                                    <option value="Marketing" {{ $employee->department == 'Marketing' ? 'selected' : '' }}>Marketing</option>
-                                    <option value="Finance & Accounting" {{ $employee->department == 'Finance & Accounting' ? 'selected' : '' }}>Finance & Accounting</option>
-                                    <option value="Media" {{ $employee->department == 'Media' ? 'selected' : '' }}>Media</option>
+                                    @foreach($departments as $department)
+                                        <option value="{{ $department->name }}" data-id="{{ $department->id }}" {{ $employee->department == $department->name ? 'selected' : '' }}>
+                                            {{ $department->name }}
+                                        </option>
+                                    @endforeach
                                 </select>
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-[var(--accent-text)] mb-2">Profession/Title *</label>
-                                <input type="text" name="profession" value="{{ $employee->profession }}" required 
-                                       class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]">
+                                <select id="professionSelect" name="profession" required class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]">
+                                    <option value="">Select Profession/Title</option>
+                                    @php
+                                        $currentDepartmentId = null;
+                                        if($employee->department) {
+                                            $currentDepartmentId = $departments->firstWhere('name', $employee->department)?->id;
+                                        }
+                                    @endphp
+                                    @if($currentDepartmentId)
+                                        @foreach($professions as $profession)
+                                            @if($profession->department_id == $currentDepartmentId)
+                                                <option value="{{ $profession->name }}" {{ $employee->profession == $profession->name ? 'selected' : '' }}>
+                                                    {{ $profession->name }}
+                                                </option>
+                                            @endif
+                                        @endforeach
+                                    @endif
+                                </select>
                             </div>
                             
                             <div>
@@ -1249,6 +1287,54 @@ function generateReport() {
         }, 2000);
     }
 
+    // ==================== DEPARTMENT & PROFESSION CASCADE ====================
+    @php
+        $professionsByDepartment = [];
+        foreach($departments as $dept) {
+            $professionsByDepartment[$dept->id] = [];
+            foreach($professions as $prof) {
+                if($prof->department_id == $dept->id) {
+                    $professionsByDepartment[$dept->id][] = [
+                        'name' => $prof->name,
+                        'id' => $prof->id
+                    ];
+                }
+            }
+        }
+    @endphp
+    
+    // Set database-driven professions for edit form
+    professionsByDepartmentId = @json($professionsByDepartment);
+    console.log('Edit Form - Professions by Department ID:', professionsByDepartmentId);
+    
+    function initializeDepartmentProfessionCascade() {
+        const departmentSelect = document.getElementById('departmentSelect');
+        const professionSelect = document.getElementById('professionSelect');
+        
+        if (!departmentSelect || !professionSelect) return;
+        
+        departmentSelect.addEventListener('change', function() {
+            const departmentId = this.options[this.selectedIndex].getAttribute('data-id');
+            const currentProfession = professionSelect.value;
+            
+            // Clear professions
+            professionSelect.innerHTML = '<option value="">Select Profession/Title</option>';
+            
+            // Populate professions for selected department using global database data
+            if (departmentId && professionsByDepartmentId[departmentId]) {
+                professionsByDepartmentId[departmentId].forEach(profession => {
+                    const option = document.createElement('option');
+                    option.value = profession.name;
+                    option.textContent = profession.name;
+                    professionSelect.appendChild(option);
+                });
+            }
+            
+            // Reset to first option if current profession not in new list
+            professionSelect.value = '';
+        });
+    }
+
     // ==================== INITIALIZATION ====================
     function initializeModals() {
         // Close modals when clicking outside
@@ -1276,6 +1362,7 @@ function generateReport() {
     document.addEventListener('DOMContentLoaded', function() {
         console.log('Profile page initialized');
         initializeModals();
+        initializeDepartmentProfessionCascade();
     });
 
     // Make functions available globally

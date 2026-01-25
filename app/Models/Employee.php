@@ -245,7 +245,7 @@ public function getAgeAttribute(): ?int
     public function getCurrencySymbol(?string $currency = null): string
     {
         $currency = $currency ?? $this->attributes['salary_currency'] ?? $this->getDefaultCurrency();
-        return $currency === self::CURRENCY_USD ? '$' : 'TSh';
+        return $currency === self::CURRENCY_USD ? '$' : 'TZS';
     }
 
     /**
@@ -321,40 +321,206 @@ public function getAgeAttribute(): ?int
     }
 
     /**
-     * Get total earnings (salary + bonus + allowances + TZS commission only)
+     * Get total earnings based on salary currency
      *
      * @return string
      */
     public function getTotalEarningsAttribute(): string
     {
+        // Determine primary currency from salary
+        $primaryCurrency = $this->attributes['salary_currency'] ?? $this->getDefaultCurrency();
         $total = 0;
         
-        // Add salary in TZS
-        if ($this->salary && $this->salary_currency === self::CURRENCY_TZS) {
+        // Add salary
+        if ($this->salary && $this->salary_currency === $primaryCurrency) {
             $total += (float)$this->salary;
         }
         
-        // Add allowances in TZS
-        if ($this->allowances && $this->allowances_currency === self::CURRENCY_TZS) {
+        // Add allowances if same currency
+        if ($this->allowances && $this->allowances_currency === $primaryCurrency) {
             $total += (float)$this->allowances;
         }
         
-        // Add bonus in TZS
-        if ($this->bonus && $this->bonus_currency === self::CURRENCY_TZS) {
+        // Add bonus if same currency
+        if ($this->bonus && $this->bonus_currency === $primaryCurrency) {
             $total += (float)$this->bonus;
         }
         
-        // Add commission ONLY if in TZS (USD commission is separate)
-        if ($this->commission && $this->commission_currency === self::CURRENCY_TZS) {
+        // Add commission if same currency
+        if ($this->commission && $this->commission_currency === $primaryCurrency) {
             $total += (float)$this->commission;
         }
         
         if ($total == 0) {
-            return '0 TZS';
+            return '0 ' . $primaryCurrency;
         }
         
-        $formatted = number_format($total, 0);
-        return $formatted . ' TZS';
+        $decimals = $primaryCurrency === self::CURRENCY_USD ? 2 : 0;
+        $formatted = number_format($total, $decimals);
+        return $formatted . ' ' . $primaryCurrency;
+    }
+
+    /**
+     * Get total earnings with symbol based on salary currency
+     *
+     * @return string
+     */
+    public function getTotalEarningsWithSymbolAttribute(): string
+    {
+        // Determine primary currency from salary
+        $primaryCurrency = $this->attributes['salary_currency'] ?? $this->getDefaultCurrency();
+        $symbol = $this->getCurrencySymbol($primaryCurrency);
+        $total = 0;
+        
+        // Add salary
+        if ($this->salary && $this->salary_currency === $primaryCurrency) {
+            $total += (float)$this->salary;
+        }
+        
+        // Add allowances if same currency
+        if ($this->allowances && $this->allowances_currency === $primaryCurrency) {
+            $total += (float)$this->allowances;
+        }
+        
+        // Add bonus if same currency
+        if ($this->bonus && $this->bonus_currency === $primaryCurrency) {
+            $total += (float)$this->bonus;
+        }
+        
+        // Add commission if same currency
+        if ($this->commission && $this->commission_currency === $primaryCurrency) {
+            $total += (float)$this->commission;
+        }
+        
+        if ($total == 0) {
+            return 'Not set';
+        }
+        
+        $decimals = $primaryCurrency === self::CURRENCY_USD ? 2 : 0;
+        $formatted = number_format($total, $decimals);
+        return $symbol . ' ' . $formatted;
+    }
+
+    /**
+     * Calculate total earnings for a specific currency
+     *
+     * @param string $currency
+     * @return float
+     */
+    private function calculateTotalForCurrency(string $currency): float
+    {
+        $total = 0;
+        
+        $salaryAmount = $this->attributes['salary'] ?? 0;
+        $salaryCurrency = $this->attributes['salary_currency'] ?? $this->getDefaultCurrency();
+        if ($salaryAmount && $salaryCurrency === $currency) {
+            $total += (float)$salaryAmount;
+        }
+        
+        $allowancesAmount = $this->attributes['allowances'] ?? 0;
+        $allowancesCurrency = $this->attributes['allowances_currency'] ?? $this->getDefaultCurrency();
+        if ($allowancesAmount && $allowancesCurrency === $currency) {
+            $total += (float)$allowancesAmount;
+        }
+        
+        $bonusAmount = $this->attributes['bonus'] ?? 0;
+        $bonusCurrency = $this->attributes['bonus_currency'] ?? $this->getDefaultCurrency();
+        if ($bonusAmount && $bonusCurrency === $currency) {
+            $total += (float)$bonusAmount;
+        }
+        
+        $commissionAmount = $this->attributes['commission'] ?? 0;
+        $commissionCurrency = $this->attributes['commission_currency'] ?? $this->getDefaultCurrency();
+        if ($commissionAmount && $commissionCurrency === $currency) {
+            $total += (float)$commissionAmount;
+        }
+        
+        return $total;
+    }
+
+    /**
+     * Get total earnings breakdown by currency
+     * Returns array with formatted totals for each currency that has earnings
+     *
+     * @return array
+     */
+    public function getTotalEarningsByCurrencyAttribute(): array
+    {
+        $breakdown = [];
+        $currenciesWithEarnings = [];
+        
+        // Collect all currencies that have earnings
+        $salary = $this->attributes['salary'] ?? null;
+        if ($salary && $salary > 0) {
+            $currenciesWithEarnings[] = $this->attributes['salary_currency'] ?? $this->getDefaultCurrency();
+        }
+        
+        $allowances = $this->attributes['allowances'] ?? null;
+        if ($allowances && $allowances > 0) {
+            $currenciesWithEarnings[] = $this->attributes['allowances_currency'] ?? $this->getDefaultCurrency();
+        }
+        
+        $bonus = $this->attributes['bonus'] ?? null;
+        if ($bonus && $bonus > 0) {
+            $currenciesWithEarnings[] = $this->attributes['bonus_currency'] ?? $this->getDefaultCurrency();
+        }
+        
+        $commission = $this->attributes['commission'] ?? null;
+        if ($commission && $commission > 0) {
+            $currenciesWithEarnings[] = $this->attributes['commission_currency'] ?? $this->getDefaultCurrency();
+        }
+        
+        // Get unique currencies
+        $uniqueCurrencies = array_unique($currenciesWithEarnings);
+        
+        // Calculate totals for each currency
+        foreach ($uniqueCurrencies as $currency) {
+            $total = $this->calculateTotalForCurrency($currency);
+            if ($total > 0) {
+                if ($currency === self::CURRENCY_TZS) {
+                    $formatted = number_format($total, 0);
+                    $breakdown[self::CURRENCY_TZS] = 'TZS ' . $formatted;
+                } elseif ($currency === self::CURRENCY_USD) {
+                    $formatted = number_format($total, 2);
+                    $breakdown[self::CURRENCY_USD] = '$ ' . $formatted;
+                }
+            }
+        }
+        
+        return $breakdown;
+    }
+
+    /**
+     * Check if employee has multi-currency earnings
+     *
+     * @return bool
+     */
+    public function hasMultiCurrencyEarningsAttribute(): bool
+    {
+        $currencies = [];
+        
+        $salary = $this->attributes['salary'] ?? null;
+        if ($salary) {
+            $currencies[] = $this->attributes['salary_currency'] ?? $this->getDefaultCurrency();
+        }
+        
+        $allowances = $this->attributes['allowances'] ?? null;
+        if ($allowances) {
+            $currencies[] = $this->attributes['allowances_currency'] ?? $this->getDefaultCurrency();
+        }
+        
+        $bonus = $this->attributes['bonus'] ?? null;
+        if ($bonus) {
+            $currencies[] = $this->attributes['bonus_currency'] ?? $this->getDefaultCurrency();
+        }
+        
+        $commission = $this->attributes['commission'] ?? null;
+        if ($commission) {
+            $currencies[] = $this->attributes['commission_currency'] ?? $this->getDefaultCurrency();
+        }
+        
+        $uniqueCurrencies = array_unique($currencies);
+        return count($uniqueCurrencies) > 1;
     }
 
     /**

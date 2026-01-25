@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\DepartmentProfession;
+use App\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -40,14 +41,19 @@ class DepartmentController extends Controller
         }
 
         // Get departments with professions
-        $departments = Department::with('professions')->get(); // Removed ->active() if scope doesn't exist
+        $departments = Department::with('professions')->get();
         
-        // Calculate stats
+        // Calculate actual employee count for each department
+        $departments->each(function($department) {
+            $department->actual_employee_count = Employee::where('department', $department->name)->count();
+        });
+        
+        // Calculate stats using actual employee counts
         $stats = [
             'total_departments' => $departments->count(),
-            'total_employees' => $departments->sum('employee_count'),
+            'total_employees' => $departments->sum('actual_employee_count'),
             'active_teams' => $departments->where('is_active', true)->count(),
-            'avg_team_size' => $departments->avg('employee_count') ?? 0,
+            'avg_team_size' => $departments->count() > 0 ? ($departments->sum('actual_employee_count') / $departments->count()) : 0,
         ];
 
         // Check if it's an AJAX request
@@ -92,7 +98,6 @@ class DepartmentController extends Controller
             'code' => 'required|string|max:10|unique:departments,code',
             'description' => 'nullable|string',
             'team_function' => 'nullable|string|max:255',
-            'employee_count' => 'nullable|integer|min:0',
             'color_scheme' => 'nullable|string|max:255',
             'initial' => 'nullable|string|max:2',
             'is_active' => 'nullable|boolean',
@@ -199,6 +204,8 @@ class DepartmentController extends Controller
         }
         
         $department->load('professions');
+        // Calculate actual employee count for this department
+        $department->actual_employee_count = Employee::where('department', $department->name)->count();
         return view('admin.departments.show', compact('department'));
     }
 
@@ -212,6 +219,8 @@ class DepartmentController extends Controller
         }
         
         $department->load('professions');
+        // Calculate actual employee count for this department
+        $department->actual_employee_count = Employee::where('department', $department->name)->count();
         
         if (request()->ajax() || request()->wantsJson()) {
             return response()->json([
@@ -376,8 +385,10 @@ class DepartmentController extends Controller
         }
 
         try {
-            // Check if department has employees
-            if ($department->employee_count > 0) {
+            // Check if department has employees - use actual count from employees table
+            $actualEmployeeCount = Employee::where('department', $department->name)->count();
+            
+            if ($actualEmployeeCount > 0) {
                 $message = 'Cannot delete department with employees. Reassign employees first.';
                 
                 if (request()->ajax() || request()->wantsJson()) {

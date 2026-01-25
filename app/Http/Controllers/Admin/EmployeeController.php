@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
+use App\Models\Department;
+use App\Models\DepartmentProfession;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -28,10 +30,14 @@ class EmployeeController extends Controller
 
         $user = Auth::user();
         $employees = Employee::where('is_active', true)->get();
+        $departments = Department::where('is_active', true)->get();
+        $professions = DepartmentProfession::all();
 
         if (request()->ajax()) {
             return response()->view('admin.partials.employeelist', [
-                'employees' => $employees
+                'employees' => $employees,
+                'departments' => $departments,
+                'professions' => $professions
             ]);
         }
         
@@ -39,7 +45,9 @@ class EmployeeController extends Controller
             'title' => 'Employee Management',
             'user' => $user,
             'role' => 'Super Admin',
-            'employees' => $employees
+            'employees' => $employees,
+            'departments' => $departments,
+            'professions' => $professions
         ]);
     }
 
@@ -171,7 +179,9 @@ class EmployeeController extends Controller
             'user' => $user,
             'role' => 'Super Admin',
             'employee' => $employee,
-            'currencies' => Employee::getCurrencies()
+            'currencies' => Employee::getCurrencies(),
+            'departments' => Department::where('is_active', true)->get(),
+            'professions' => DepartmentProfession::all()
         ]);
     }
 
@@ -788,6 +798,46 @@ class EmployeeController extends Controller
         
         $extension = strtolower($extension);
         return $mimeTypes[$extension] ?? 'application/octet-stream';
+    }
+
+    /**
+     * Generate employee ID based on department name
+     */
+    public function generateEmployeeId($departmentName): JsonResponse
+    {
+        try {
+            // Get department by name
+            $deptModel = Department::where('name', $departmentName)->first();
+            
+            if (!$deptModel) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Department not found'
+                ], 404);
+            }
+            
+            // Get the department code
+            $deptCode = $deptModel->code;
+            
+            // Count existing employees in this department
+            $employeeCount = Employee::where('department', $departmentName)->count();
+            
+            // Generate the next ID
+            $nextNumber = $employeeCount + 1;
+            $employeeId = $deptCode . '-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+            
+            return response()->json([
+                'success' => true,
+                'employee_id' => $employeeId
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Employee ID generation error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate employee ID: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

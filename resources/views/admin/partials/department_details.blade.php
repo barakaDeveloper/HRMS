@@ -56,7 +56,7 @@
                 </div>
                 <div>
                     <div class="text-sm font-medium text-[var(--muted)]">Team Members</div>
-                    <div class="font-bold text-2xl logo-text">{{ $department->employee_count }}</div>
+                    <div class="font-bold text-2xl logo-text">{{ $department->actual_employee_count ?? 0 }}</div>
                 </div>
             </div>
         </div>
@@ -236,11 +236,11 @@
                     <div>
                         <div class="flex justify-between text-sm mb-2 text-[var(--muted)]">
                             <span>Current Team Size</span>
-                            <span>{{ $department->employee_count }}/40</span>
+                            <span>{{ $department->actual_employee_count ?? 0 }}/40</span>
                         </div>
                         <div class="w-full h-2 rounded-full bg-[var(--chip-bg)] overflow-hidden">
                             @php
-                                $percentage = min(100, ($department->employee_count / 40) * 100);
+                                $percentage = min(100, (($department->actual_employee_count ?? 0) / 40) * 100);
                             @endphp
                             <div class="h-2 bg-gradient-to-r {{ $department->color_scheme ?? 'from-gray-500 to-gray-600' }} rounded-full transition-all duration-300" 
                                  style="width: {{ $percentage }}%"></div>
@@ -563,6 +563,75 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('professionModal').classList.add('hidden');
         }
     });
-});
-</script>
-@endpush
+
+    // Delete department function
+    window.deleteDepartment = function(departmentId) {
+        Swal.fire({
+            title: 'Delete Department?',
+            text: 'This action cannot be undone. Are you sure you want to delete this department?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, Delete',
+            cancelButtonText: 'Cancel',
+            customClass: {
+                container: 'dark:bg-gray-800 dark:text-white',
+                popup: 'dark:bg-gray-800 dark:text-white border dark:border-gray-700',
+                title: 'dark:text-white',
+                htmlContainer: 'dark:text-gray-300'
+            }
+        }).then(result => {
+            if (result.isConfirmed) {
+                // Send delete request
+                fetch(`/admin/departments/${departmentId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted!',
+                            text: data.message || 'Department deleted successfully.',
+                            customClass: {
+                                container: 'dark:bg-gray-800 dark:text-white',
+                                popup: 'dark:bg-gray-800 dark:text-white border dark:border-gray-700',
+                                title: 'dark:text-white'
+                            }
+                        }).then(() => {
+                            window.location.href = '/admin/departments';
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.message || 'Failed to delete department.',
+                            customClass: {
+                                container: 'dark:bg-gray-800 dark:text-white',
+                                popup: 'dark:bg-gray-800 dark:text-white border dark:border-gray-700',
+                                title: 'dark:text-white'
+                            }
+                        });
+                    }
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to delete department. Please try again.',
+                        customClass: {
+                            container: 'dark:bg-gray-800 dark:text-white',
+                            popup: 'dark:bg-gray-800 dark:text-white border dark:border-gray-700',
+                            title: 'dark:text-white'
+                        }
+                    });
+                });
+            }
+        });
+    };

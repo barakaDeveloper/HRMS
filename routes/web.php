@@ -92,6 +92,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:Super Admin'])
     
     // Employees routes
     Route::prefix('employees')->name('employees.')->group(function () {
+        // Generate employee ID for a department - MUST come before /{employee} catch-all
+        Route::get('/generate-id/{departmentName}', [EmployeeController::class, 'generateEmployeeId'])->name('generate-id');
+        
         Route::get('/', [EmployeeController::class, 'index'])->name('index');
         Route::get('/create', [EmployeeController::class, 'create'])->name('create');
         Route::post('/', [EmployeeController::class, 'store'])->name('store');

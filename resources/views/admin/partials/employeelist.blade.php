@@ -64,12 +64,9 @@
                         <label class="block text-sm font-medium text-[var(--accent-text)] mb-2">Department</label>
                         <select id="departmentFilter" class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]">
                             <option value="">All Departments</option>
-                            <option value="Sales">Sales</option>
-                            <option value="Reservations">Reservations</option>
-                            <option value="Logistics">Logistics</option>
-                            <option value="Marketing">Marketing</option>
-                            <option value="Finance & Accounting">Finance & Accounting</option>
-                            <option value="Media">Media</option>
+                            @foreach($departments as $department)
+                                <option value="{{ $department->name }}">{{ $department->name }}</option>
+                            @endforeach
                         </select>
                     </div>
 
@@ -78,6 +75,9 @@
                         <label class="block text-sm font-medium text-[var(--accent-text)] mb-2">Profession</label>
                         <select id="professionFilter" class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]">
                             <option value="">All Professions</option>
+                            @foreach($professions as $profession)
+                                <option value="{{ $profession->name }}">{{ $profession->name }}</option>
+                            @endforeach
                         </select>
                     </div>
 
@@ -318,7 +318,11 @@
 
                         <div>
                             <label class="block text-sm font-medium text-[var(--accent-text)] mb-2">Employee ID <span class="text-red-500">*</span></label>
-                            <input type="text" name="employee_id" required class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]" placeholder="EMP001">
+                            <input type="text" id="employee_id" name="employee_id" required 
+                                   class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)] bg-[var(--chip-bg)] cursor-not-allowed" 
+                                   placeholder="Auto-generated after selecting department"
+                                   readonly>
+                            <p class="text-xs text-[var(--muted)] mt-1">Automatically generated based on department</p>
                         </div>
                     </div>
 
@@ -328,14 +332,13 @@
 
                         <div>
                             <label class="block text-sm font-medium text-[var(--accent-text)] mb-2">Department <span class="text-red-500">*</span></label>
-                            <select name="department" id="departmentSelect" required class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]" onchange="updateProfessions()">
+                            <select name="department" id="departmentSelect" required class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]">
                                 <option value="">Select Department</option>
-                                <option value="Sales">Sales</option>
-                                <option value="Reservations">Reservations</option>
-                                <option value="Logistics">Logistics</option>
-                                <option value="Marketing">Marketing</option>
-                                <option value="Finance & Accounting">Finance & Accounting</option>
-                                <option value="Media">Media</option>
+                                @foreach($departments as $department)
+                                    <option value="{{ $department->name }}" data-id="{{ $department->id }}">
+                                        {{ $department->name }}
+                                    </option>
+                                @endforeach
                             </select>
                         </div>
 
@@ -424,5 +427,27 @@
 <script>
     // Make routes available to employee.js
     window.employeeIndexRoute = '{{ route("admin.employees.index") }}';
+    // URL for generating employee IDs (admin-scoped)
+    window.generateEmployeeIdUrl = '{{ url("/admin/employees/generate-id") }}';
+    
+    // ==================== DATABASE-DRIVEN DEPARTMENT & PROFESSION DATA ====================
+    @php
+        $professionsByDepartment = [];
+        foreach($departments as $dept) {
+            $professionsByDepartment[$dept->id] = [];
+            foreach($professions as $prof) {
+                if($prof->department_id == $dept->id) {
+                    $professionsByDepartment[$dept->id][] = [
+                        'name' => $prof->name,
+                        'id' => $prof->id
+                    ];
+                }
+            }
+        }
+    @endphp
+    
+    // Pass database data to employee.js BEFORE it loads
+    var professionsByDepartmentId = @json($professionsByDepartment);
+    console.log('✅ Professions by Department ID ready:', professionsByDepartmentId);
 </script>
 <script src="{{ asset('js/employee.js') }}"></script>

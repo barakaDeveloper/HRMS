@@ -1,14 +1,6 @@
-console.log('=== EMPLOYEE SCRIPT LOADING ===');
-
-// Department-Profession mapping
-const departmentProfessions = {
-    'Sales': ['Sales Manager', 'Sales Executive'],
-    'Reservations': ['Reservation Manager', 'Reservation Executive'],
-    'Logistics': ['Logistics Officer', 'Logistics Executive'],
-    'Marketing': ['Marketing Officer', 'Digital Marketer', 'Content Creator', 'Brand Strategist'],
-    'Finance & Accounting': ['Finance Manager', 'Accountant', 'Cashier', 'Auditor'],
-    'Media': ['Photographer', 'Videographer', 'Social Media Manager', 'Graphic Designer']
-};
+// Database-driven professions by department will be set from blade template
+// (Already declared in employeelist.blade.php)
+let departmentNameToIdMap = {};
 
 // Filter state
 let currentFilters = {
@@ -24,15 +16,15 @@ let currentFilters = {
 // ==================== EMPLOYEE MODAL FUNCTIONS ====================
 
 function openEmployeeModal() {
-    console.log('Opening employee modal');
     const modal = document.getElementById('employeeModal');
-    modal.style.display = 'flex';
-    modal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
 }
 
 function closeEmployeeModal() {
-    console.log('Closing employee modal');
     const modal = document.getElementById('employeeModal');
     const form = document.getElementById('employeeForm');
 
@@ -53,7 +45,6 @@ function closeEmployeeModal() {
 }
 
 function updateProfessions() {
-    console.log('Updating professions');
     const departmentSelect = document.getElementById('departmentSelect');
     const professionSelect = document.getElementById('professionSelect');
 
@@ -61,23 +52,50 @@ function updateProfessions() {
         return;
     }
 
+    const selectedOption = departmentSelect.options[departmentSelect.selectedIndex];
+    const departmentId = selectedOption.getAttribute('data-id');
     const selectedDepartment = departmentSelect.value;
+
     professionSelect.innerHTML = '<option value="">Select Profession</option>';
 
-    if (selectedDepartment && departmentProfessions[selectedDepartment]) {
-        departmentProfessions[selectedDepartment].forEach(profession => {
+    // Use database data if available
+    if (departmentId && professionsByDepartmentId[departmentId]) {
+        professionsByDepartmentId[departmentId].forEach(profession => {
             const option = document.createElement('option');
-            option.value = profession;
-            option.textContent = profession;
+            option.value = profession.name;
+            option.textContent = profession.name;
             professionSelect.appendChild(option);
         });
     }
+
+    // Generate employee ID when department is selected
+    generateEmployeeId(selectedDepartment);
+}
+
+function generateEmployeeId(department) {
+    if (!department) {
+        document.getElementById('employee_id').value = '';
+        return;
+    }
+
+    const baseUrl = (window.generateEmployeeIdUrl) ? window.generateEmployeeIdUrl : '/admin/employees/generate-id';
+    fetch(`${baseUrl}/${encodeURIComponent(department)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('employee_id').value = data.employee_id;
+            } else {
+                document.getElementById('employee_id').value = '';
+            }
+        })
+        .catch(error => {
+            document.getElementById('employee_id').value = '';
+        });
 }
 
 // ==================== FILTER FUNCTIONS ====================
 
 function openFilterModal() {
-    console.log('Opening filter modal');
     const modal = document.getElementById('filterModal');
     if (modal) {
         modal.style.display = 'flex';
@@ -88,7 +106,6 @@ function openFilterModal() {
 }
 
 function closeFilterModal() {
-    console.log('Closing filter modal');
     const modal = document.getElementById('filterModal');
     if (modal) {
         modal.style.display = 'none';
@@ -129,8 +146,6 @@ function populateFilterData() {
 function applyFilters(event) {
     if (event) event.preventDefault();
 
-    console.log('Applying filters');
-
     // Get filter values
     currentFilters = {
         name: document.getElementById('nameFilter')?.value.toLowerCase().trim() || '',
@@ -141,8 +156,6 @@ function applyFilters(event) {
         minProductivity: document.getElementById('minProductivity')?.value || '',
         maxProductivity: document.getElementById('maxProductivity')?.value || ''
     };
-
-    console.log('Current filters:', currentFilters);
 
     filterEmployees();
     updateActiveFiltersDisplay();
@@ -261,7 +274,7 @@ function updateActiveFiltersDisplay() {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                     </button>
-                `;
+                `; 
 
                 filterTagsDiv.appendChild(filterTag);
             }
@@ -356,14 +369,24 @@ function clearAllFilters() {
 // ==================== FORM SUBMISSION ====================
 
 function handleFormSubmit(event) {
-    console.log('🎯 FORM SUBMISSION STARTED');
     event.preventDefault();
 
     const form = event.target;
-    console.log('Form action:', form.action);
+
+    // Ensure employee ID was generated (read-only auto-generated field)
+    const employeeIdField = form.querySelector('[name="employee_id"]');
+    const employeeIdValue = employeeIdField ? (employeeIdField.value || '').trim() : '';
+    if (!employeeIdValue) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Missing Employee ID',
+            text: 'Please select a department to auto-generate the Employee ID before submitting.',
+            confirmButtonText: 'OK'
+        });
+        return;
+    }
 
     const formData = new FormData(form);
-    console.log('FormData entries:', Array.from(formData.entries()));
 
     // Show loading state
     const submitText = document.getElementById('submitBtnText');
@@ -410,7 +433,6 @@ function handleFormSubmit(event) {
             return data;
         })
         .then(data => {
-            console.log('Response data:', data);
             Swal.close();
 
             // Re-enable button and hide loader
@@ -429,7 +451,6 @@ function handleFormSubmit(event) {
                 });
             } else {
                 const errorMsg = (data && data.message) ? data.message : 'An error occurred while saving the employee';
-                console.error('Server error:', data);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
@@ -439,7 +460,6 @@ function handleFormSubmit(event) {
             }
         })
         .catch(error => {
-            console.error('Fetch error:', error);
             Swal.close();
 
             if (submitBtn) submitBtn.disabled = false;
@@ -458,8 +478,6 @@ function handleFormSubmit(event) {
 // ==================== INITIALIZATION ====================
 
 function initializeFilters() {
-    console.log('Initializing filters');
-
     const employeeCards = document.querySelectorAll('.employee-card');
     updateResultsCount(employeeCards.length, employeeCards.length);
 
@@ -498,26 +516,17 @@ function debounce(func, wait) {
 
 // DOM Ready
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('🚀 DOM Ready - Initializing');
-
     const form = document.getElementById('employeeForm');
     const modal = document.getElementById('employeeModal');
     const departmentSelect = document.getElementById('departmentSelect');
     const filterModal = document.getElementById('filterModal');
 
-    console.log('Form found:', !!form);
-    console.log('Modal found:', !!modal);
-    console.log('Department select found:', !!departmentSelect);
-    console.log('Filter modal found:', !!filterModal);
-
     if (form) {
         form.addEventListener('submit', handleFormSubmit);
-        console.log('✅ Form event listener added');
     }
 
     if (departmentSelect) {
         departmentSelect.addEventListener('change', updateProfessions);
-        console.log('✅ Department event listener added');
     }
 
     if (modal) {
@@ -537,8 +546,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     initializeFilters();
-
-    console.log('✅ Initialization complete');
 });
 
 // Make functions global
@@ -550,5 +557,3 @@ window.closeFilterModal = closeFilterModal;
 window.applyFilters = applyFilters;
 window.removeFilter = removeFilter;
 window.clearAllFilters = clearAllFilters;
-
-console.log('✅ Employee script loaded');
