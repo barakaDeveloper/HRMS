@@ -9,6 +9,7 @@ let currentFilters = {
     department: '',
     profession: '',
     employmentType: '',
+    status: '',
     minProductivity: '',
     maxProductivity: ''
 };
@@ -153,6 +154,7 @@ function applyFilters(event) {
         department: document.getElementById('departmentFilter')?.value || '',
         profession: document.getElementById('professionFilter')?.value || '',
         employmentType: document.getElementById('employmentTypeFilter')?.value || '',
+        status: document.getElementById('statusFilter')?.value || '',
         minProductivity: document.getElementById('minProductivity')?.value || '',
         maxProductivity: document.getElementById('maxProductivity')?.value || ''
     };
@@ -176,6 +178,7 @@ function filterEmployees() {
         const department = card.getAttribute('data-department') || '';
         const profession = card.getAttribute('data-profession') || '';
         const employmentType = card.getAttribute('data-employment-type') || '';
+        const status = card.getAttribute('data-status') || '';
         const productivity = parseInt(card.getAttribute('data-productivity')) || 0;
 
         // Apply name filter
@@ -200,6 +203,11 @@ function filterEmployees() {
 
         // Apply employment type filter
         if (currentFilters.employmentType && employmentType !== currentFilters.employmentType) {
+            shouldShow = false;
+        }
+
+        // Apply status filter
+        if (currentFilters.status && status !== currentFilters.status) {
             shouldShow = false;
         }
 
@@ -229,6 +237,8 @@ function updateResultsCount(visible, total) {
     const resultsCount = document.getElementById('resultsCount');
     const visibleCount = document.getElementById('visibleCount');
     const totalCount = document.getElementById('totalCount');
+    const noRecordsMessage = document.getElementById('noRecordsMessage');
+    const employeeGrid = document.getElementById('employeeGrid');
 
     if (visibleCount) visibleCount.textContent = visible;
     if (totalCount) totalCount.textContent = total;
@@ -238,6 +248,17 @@ function updateResultsCount(visible, total) {
             resultsCount.classList.add('hidden');
         } else {
             resultsCount.classList.remove('hidden');
+        }
+    }
+
+    // Show/hide no records message
+    if (noRecordsMessage) {
+        if (visible === 0) {
+            noRecordsMessage.classList.remove('hidden');
+            if (employeeGrid) employeeGrid.classList.add('hidden');
+        } else {
+            noRecordsMessage.classList.add('hidden');
+            if (employeeGrid) employeeGrid.classList.remove('hidden');
         }
     }
 }
@@ -274,7 +295,7 @@ function updateActiveFiltersDisplay() {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                     </button>
-                `; 
+                `;
 
                 filterTagsDiv.appendChild(filterTag);
             }
@@ -306,6 +327,7 @@ function getFilterLabel(key) {
         department: 'Department',
         profession: 'Profession',
         employmentType: 'Employment Type',
+        status: 'Status',
         minProductivity: 'Min Productivity',
         maxProductivity: 'Max Productivity'
     };
@@ -321,6 +343,7 @@ function removeFilter(filterKey) {
         department: 'departmentFilter',
         profession: 'professionFilter',
         employmentType: 'employmentTypeFilter',
+        status: 'statusFilter',
         minProductivity: 'minProductivity',
         maxProductivity: 'maxProductivity'
     };
@@ -342,13 +365,14 @@ function clearAllFilters() {
         department: '',
         profession: '',
         employmentType: '',
+        status: '',
         minProductivity: '',
         maxProductivity: ''
     };
 
     const fieldsToClear = [
         'nameFilter', 'employeeIdFilter', 'departmentFilter',
-        'professionFilter', 'employmentTypeFilter', 'minProductivity', 'maxProductivity'
+        'professionFilter', 'employmentTypeFilter', 'statusFilter', 'minProductivity', 'maxProductivity'
     ];
 
     fieldsToClear.forEach(fieldId => {

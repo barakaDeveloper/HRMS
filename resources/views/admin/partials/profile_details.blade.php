@@ -15,9 +15,11 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
             <!-- Profile Info Section -->
             <div class="flex items-center gap-3 sm:gap-4">
-                <img src="{{ $employee->profile_photo_url }}" 
-                     alt="{{ $employee->name }}" 
-                     class="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-[var(--border-color)] flex-shrink-0">
+                <div class="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0">
+                    <img src="{{ $employee->profile_photo_url }}" 
+                         alt="{{ $employee->name }}" 
+                         class="w-full h-full object-cover rounded-full border-4 border-[var(--border-color)]">
+                </div>
                 <div class="flex-1 min-w-0">
                     <h1 class="text-xl sm:text-2xl font-bold logo-text truncate">{{ $employee->name }}</h1>
                     <!-- Status Chips -->
@@ -554,14 +556,29 @@
                             
                             <div>
                                 <label class="block text-sm font-medium text-[var(--accent-text)] mb-2">Profile Photo</label>
-                                <input type="file" name="profile_photo" accept="image/*" 
-                                       class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]">
+                                <input type="file" name="profile_photo" accept="image/*"
+                                       class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[var(--g-spring)] file:text-white hover:file:bg-[var(--g-poly)]"
+                                       onchange="previewImage(this)">
+                                <p class="text-xs text-[var(--muted)] mt-1">Accepted formats: JPG, PNG, GIF, BMP, WEBP (Max 2MB)</p>
                                 @if($employee->profile_photo_url)
-                                    <div class="mt-2 flex items-center gap-3">
-                                        <img src="{{ $employee->profile_photo_url }}" alt="Current" class="w-12 h-12 rounded-full">
-                                        <span class="text-sm text-[var(--muted)]">Current photo</span>
+                                    <div class="mt-3 flex items-center gap-4">
+                                        <div class="relative w-20 h-20 flex-shrink-0">
+                                            <img src="{{ $employee->profile_photo_url }}" 
+                                                 alt="Current profile photo" 
+                                                 class="w-full h-full object-cover rounded-full border-2 border-[var(--border-color)]">
+                                        </div>
+                                        <div>
+                                            <span class="text-sm text-[var(--muted)]">Current photo</span>
+                                        </div>
                                     </div>
                                 @endif
+                                <div id="imagePreviewContainer" class="hidden mt-3">
+                                    <div class="relative w-20 h-20 flex-shrink-0">
+                                        <img id="imagePreview" src="" alt="New profile photo preview" 
+                                             class="w-full h-full object-cover rounded-full border-2 border-[var(--g-spring)]">
+                                    </div>
+                                    <span class="text-sm text-[var(--g-spring)]">New photo preview</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -574,8 +591,10 @@
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-[var(--accent-text)] mb-2">Employee ID</label>
-                                <input type="text" name="employee_id" value="{{ $employee->employee_id }}" 
-                                       class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]">
+                                <input type="text" name="employee_id" id="employee_id_edit" value="{{ $employee->employee_id }}" readonly 
+                                       class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)] bg-gray-100 cursor-not-allowed"
+                                       title="Employee ID is auto-generated based on department">
+                                <p class="text-xs text-[var(--muted)] mt-1">ID will auto-update if department changes</p>
                             </div>
                             
                             <div>
@@ -583,7 +602,7 @@
                                 <select id="departmentSelect" name="department" required class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]">
                                     <option value="">Select Department</option>
                                     @foreach($departments as $department)
-                                        <option value="{{ $department->name }}" data-id="{{ $department->id }}" {{ $employee->department == $department->name ? 'selected' : '' }}>
+                                        <option value="{{ $department->name }}" data-id="{{ $department->id }}" data-code="{{ $department->code ?? substr($department->name, 0, 3) }}" {{ $employee->department == $department->name ? 'selected' : '' }}>
                                             {{ $department->name }}
                                         </option>
                                     @endforeach
@@ -971,29 +990,54 @@
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                'X-HTTP-Method-Override': 'PUT'
+                'X-HTTP-Method-Override': 'PUT',
+                'Accept': 'application/json'
             },
             body: formData
         })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            return response.json();
-        })
-        .then(data => {
+        .then(async response => {
             Swal.close();
-            if (data.success) {
+            
+            let errorMessage;
+            let errorDetails = '';
+            
+            // Try to parse JSON response
+            let data;
+            try {
+                data = await response.json();
+            } catch (e) {
+                data = null;
+            }
+            
+            if (!response.ok) {
+                // Handle validation errors
+                if (response.status === 422 && data && data.errors) {
+                    const errors = Object.values(data.errors).flat();
+                    errorDetails = errors.join('\n• ');
+                    errorMessage = `Validation Error:\n• ${errorDetails}`;
+                } else if (data && data.message) {
+                    errorMessage = data.message;
+                } else {
+                    errorMessage = `HTTP Error ${response.status}: ${response.statusText}`;
+                }
+                
+                showError(errorMessage);
+                throw new Error(errorMessage);
+            }
+            
+            if (data && data.success) {
                 showSuccess(data.message || 'Employee information updated successfully!', true);
                 closeEditModal();
+            } else if (data && data.message) {
+                showError(data.message);
             } else {
-                showError(data.message || 'Failed to update employee information');
+                showError('An unexpected error occurred. Please try again.');
             }
         })
         .catch(error => {
             Swal.close();
             console.error('Update error:', error);
-            showError('Failed to update employee information. Please try again.');
+            // Error already shown in the response handler
         });
     }
 
@@ -1287,6 +1331,46 @@ function generateReport() {
         }, 2000);
     }
 
+    // ==================== IMAGE PREVIEW FUNCTION ====================
+    function previewImage(input) {
+        const preview = document.getElementById('imagePreview');
+        const previewContainer = document.getElementById('imagePreviewContainer');
+        
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            
+            // Validate file type
+            const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+            if (!validImageTypes.includes(file.type)) {
+                showError('Invalid file type. Please select an image file (JPG, PNG, GIF, BMP, or WEBP).');
+                input.value = '';
+                previewContainer.classList.add('hidden');
+                return;
+            }
+            
+            // Validate file size (2MB max)
+            const maxSize = 2 * 1024 * 1024;
+            if (file.size > maxSize) {
+                showError('File is too large. Maximum size is 2MB.');
+                input.value = '';
+                previewContainer.classList.add('hidden');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                previewContainer.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        } else {
+            previewContainer.classList.add('hidden');
+        }
+    }
+    
+    // Make image preview function globally accessible
+    window.previewImage = previewImage;
+    
     // ==================== DEPARTMENT & PROFESSION CASCADE ====================
     @php
         $professionsByDepartment = [];
@@ -1307,14 +1391,85 @@ function generateReport() {
     professionsByDepartmentId = @json($professionsByDepartment);
     console.log('Edit Form - Professions by Department ID:', professionsByDepartmentId);
     
+    // Store original department and employee ID for comparison
+    const originalDepartment = '{{ $employee->department }}';
+    const originalEmployeeId = '{{ $employee->employee_id }}';
+    
+    // Function to generate employee ID for edit form when department changes
+    function generateEmployeeIdForEdit(department) {
+        if (!department) {
+            document.getElementById('employee_id_edit').value = originalEmployeeId;
+            return;
+        }
+        
+        // Properly encode the department name for URL
+        const encodedDepartment = encodeURIComponent(department);
+        const url = `/admin/employees/generate-id/${encodedDepartment}`;
+        
+        console.log('Generating employee ID for department:', department);
+        console.log('Encoded URL:', url);
+        
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                return response.json().then(errData => {
+                    throw new Error(errData.message || `HTTP ${response.status}: ${response.statusText}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Response data:', data);
+            if (data.success && data.employee_id) {
+                document.getElementById('employee_id_edit').value = data.employee_id;
+                console.log('Employee ID regenerated:', data.employee_id);
+            } else {
+                console.warn('Failed to generate employee ID:', data.message);
+                // Fallback: Generate ID locally based on department code pattern
+                generateIdFallback(department);
+            }
+        })
+        .catch(error => {
+            console.error('Error generating employee ID:', error);
+            // Fallback: Generate ID locally
+            generateIdFallback(department);
+        });
+    }
+    
+    // Fallback function to generate ID locally if API fails
+    function generateIdFallback(department) {
+        // Get department code from the select options
+        const departmentSelect = document.getElementById('departmentSelect');
+        if (departmentSelect) {
+            const selectedOption = departmentSelect.options[departmentSelect.selectedIndex];
+            const deptCode = selectedOption ? selectedOption.getAttribute('data-code') : null;
+            
+            if (deptCode) {
+                // Generate a placeholder ID - the backend will assign the correct number
+                const placeholderId = deptCode + '-XXX';
+                document.getElementById('employee_id_edit').value = placeholderId;
+                console.log('Using fallback ID:', placeholderId);
+            }
+        }
+    }
+    
     function initializeDepartmentProfessionCascade() {
         const departmentSelect = document.getElementById('departmentSelect');
         const professionSelect = document.getElementById('professionSelect');
         
         if (!departmentSelect || !professionSelect) return;
         
+        // Add event listener for department change to regenerate employee ID
         departmentSelect.addEventListener('change', function() {
             const departmentId = this.options[this.selectedIndex].getAttribute('data-id');
+            const selectedDepartment = this.value;
             const currentProfession = professionSelect.value;
             
             // Clear professions
@@ -1332,6 +1487,16 @@ function generateReport() {
             
             // Reset to first option if current profession not in new list
             professionSelect.value = '';
+            
+            // Handle employee ID based on department selection
+            if (selectedDepartment === originalDepartment) {
+                // Restore original ID when going back to original department
+                document.getElementById('employee_id_edit').value = originalEmployeeId;
+                console.log('Restored original employee ID:', originalEmployeeId);
+            } else {
+                // Generate new ID for different department
+                generateEmployeeIdForEdit(selectedDepartment);
+            }
         });
     }
 

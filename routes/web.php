@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\Admin\PayrollController;
 use App\Http\Controllers\Admin\LeaveController;
+use App\Http\Controllers\Admin\SettingsController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -152,9 +153,17 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:Super Admin'])
     
     // Payroll routes
     Route::get('/payroll', [PayrollController::class, 'index'])->name('payroll.index');
+    Route::post('/payroll/process', [PayrollController::class, 'processPayroll'])->name('payroll.process');
+    Route::post('/payroll/salary-slip', [PayrollController::class, 'generateSalarySlip'])->name('payroll.salary_slip');
+    Route::get('/payroll/salary-slip/download', [PayrollController::class, 'downloadSalarySlip'])->name('payroll.download_slip');
+    Route::post('/payroll/bulk-slips', [PayrollController::class, 'generateBulkSalarySlips'])->name('payroll.bulk_slips');
 
     // Leave routes
     Route::get('/leave', [LeaveController::class, 'index'])->name('leave.index');
+    
+    // Settings routes
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+    Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
 });
 
 // Global employees route for HR Manager and Manager roles

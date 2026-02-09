@@ -209,6 +209,18 @@ document.addEventListener('DOMContentLoaded', function() {
             modalSubmitBtn.disabled = true;
 
             const formData = new FormData(modalForm);
+            
+            // Ensure is_active is always submitted
+            const isActiveCheckbox = document.getElementById('modal_is_active');
+            if (isActiveCheckbox && !isActiveCheckbox.checked) {
+                formData.set('is_active', '0');
+            }
+            
+            // Debug: Log form data
+            console.log('Form data being submitted:');
+            for (let [key, value] of formData.entries()) {
+                console.log(key + ':', value);
+            }
 
             fetch(modalForm.action, {
                 method: 'POST',

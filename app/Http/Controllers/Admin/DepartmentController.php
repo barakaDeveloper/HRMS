@@ -9,6 +9,7 @@ use App\Models\DepartmentProfession;
 use App\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -290,6 +291,9 @@ class DepartmentController extends Controller
         $validated = $validator->validated();
 
         try {
+            // Store original is_active status BEFORE update
+            $wasActive = $department->is_active;
+            
             // Update department
             $department->update([
                 'name' => $validated['name'],
@@ -302,6 +306,28 @@ class DepartmentController extends Controller
                 'is_active' => isset($validated['is_active']) ? (bool)$validated['is_active'] : $department->is_active,
                 'updated_by' => Auth::id(),
             ]);
+
+            // Set all employees in this department to inactive if department is being deactivated
+            if ($wasActive == true && isset($validated['is_active']) && $validated['is_active'] == false) {
+                $employeesUpdated = Employee::where('department', $department->name)->update(['is_active' => false]);
+                
+                Log::info('Department deactivated - employees set to inactive', [
+                    'department_id' => $department->id,
+                    'department_name' => $department->name,
+                    'employees_updated' => $employeesUpdated
+                ]);
+            }
+            
+            // Reactivate all employees in this department if department is being reactivated
+            if ($wasActive == false && isset($validated['is_active']) && $validated['is_active'] == true) {
+                $employeesUpdated = Employee::where('department', $department->name)->update(['is_active' => true]);
+                
+                Log::info('Department reactivated - employees set to active', [
+                    'department_id' => $department->id,
+                    'department_name' => $department->name,
+                    'employees_updated' => $employeesUpdated
+                ]);
+            }
 
             // Sync professions
             if (isset($validated['professions']) && is_array($validated['professions'])) {

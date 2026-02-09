@@ -93,6 +93,17 @@
                         </select>
                     </div>
 
+                    <!-- Status Filter -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--accent-text)] mb-2">Status</label>
+                        <select id="statusFilter" class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]">
+                            <option value="">All Statuses</option>
+                            <option value="active">Active</option>
+                            <option value="on_leave">On Leave</option>
+                            <option value="terminated">Terminated</option>
+                        </select>
+                    </div>
+
                     <!-- Productivity Range -->
                     <div>
                         <label class="block text-sm font-medium text-[var(--accent-text)] mb-2">Productivity Range</label>
@@ -141,6 +152,20 @@
     Showing <span id="visibleCount">0</span> of <span id="totalCount">0</span> employees
 </div>
 
+<!-- No Records Found Message -->
+<div id="noRecordsMessage" class="hidden text-center py-12">
+    <div class="flex flex-col items-center justify-center">
+        <svg class="w-16 h-16 text-[var(--muted)] mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <h3 class="text-lg font-semibold logo-text mb-2">No Employees Found</h3>
+        <p class="text-[var(--muted)] text-sm">Try adjusting your filters or search criteria</p>
+        <button type="button" onclick="clearAllFilters()" class="chip mt-4 px-6 py-2 bg-[var(--g-spring)] text-white hover:bg-[var(--g-poly)] transition-colors">
+            Clear All Filters
+        </button>
+    </div>
+</div>
+
 <!-- Stats -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div class="panel p-4 flex items-center gap-4">
@@ -163,7 +188,7 @@
         </div>
         <div>
             <div class="text-sm text-[var(--muted)]">Active</div>
-            <div class="font-semibold text-xl" id="activeEmployeesCount">{{ $employees->where('is_active', true)->count() }}</div>
+            <div class="font-semibold text-xl" id="activeEmployeesCount">{{ $employees->where('employee_status', 'active')->count() }}</div>
         </div>
     </div>
 
@@ -195,7 +220,7 @@
 <!-- Employee Grid -->
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" id="employeeGrid">
     @foreach($employees as $employee)
-    <div class="panel p-6 employee-card" data-employee-id="{{ $employee->employee_id }}" data-department="{{ $employee->department }}" data-profession="{{ $employee->profession }}" data-employment-type="{{ $employee->employment_type }}" data-productivity="{{ $employee->productivity }}">
+    <div class="panel p-6 employee-card" data-employee-id="{{ $employee->employee_id }}" data-department="{{ $employee->department }}" data-profession="{{ $employee->profession }}" data-employment-type="{{ $employee->employment_type }}" data-status="{{ $employee->employee_status }}" data-productivity="{{ $employee->productivity }}">
         <div class="flex items-start justify-between mb-4">
             <div class="flex items-center gap-3">
             <img src="{{ $employee->profile_photo_url }}" alt="{{ $employee->name }}" class="w-14 h-14 rounded-full border-2 border-[var(--border-color)]">
@@ -335,7 +360,7 @@
                             <select name="department" id="departmentSelect" required class="chip w-full focus:ring-2 focus:ring-[var(--g-spring)]">
                                 <option value="">Select Department</option>
                                 @foreach($departments as $department)
-                                    <option value="{{ $department->name }}" data-id="{{ $department->id }}">
+                                    <option value="{{ $department->name }}" data-id="{{ $department->id }}" data-code="{{ $department->code ?? substr($department->name, 0, 3) }}">
                                         {{ $department->name }}
                                     </option>
                                 @endforeach

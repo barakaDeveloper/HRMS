@@ -74,6 +74,17 @@ class Employee extends Model
         'is_active'
     ];
 
+    protected $attributes = [
+        'salary' => 0,
+        'bonus' => 0,
+        'commission' => 0,
+        'allowances' => 0,
+        'salary_currency' => 'TZS',
+        'bonus_currency' => 'TZS',
+        'commission_currency' => 'TZS',
+        'allowances_currency' => 'TZS',
+    ];
+
     protected $casts = [
         'date_of_birth' => 'date',
         'join_date' => 'date',

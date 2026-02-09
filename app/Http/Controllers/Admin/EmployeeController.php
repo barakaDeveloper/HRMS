@@ -29,8 +29,9 @@ class EmployeeController extends Controller
         }
 
         $user = Auth::user();
-        $employees = Employee::where('is_active', true)->get();
-        $departments = Department::where('is_active', true)->get();
+        // Show all employees regardless of department status
+        $employees = Employee::all();
+        $departments = Department::all();
         $professions = DepartmentProfession::all();
 
         if (request()->ajax()) {
@@ -40,7 +41,7 @@ class EmployeeController extends Controller
                 'professions' => $professions
             ]);
         }
-        
+
         return view('admin.employees.index', [
             'title' => 'Employee Management',
             'user' => $user,
@@ -85,7 +86,7 @@ class EmployeeController extends Controller
                 'marital_status' => 'nullable|string|in:single,married,divorced,widowed',
                 'emergency_contact' => 'nullable|string|max:255',
                 'address' => 'nullable|string',
-                
+
                 // Employment Information
                 'department' => 'required|string',
                 'profession' => 'required|string',
@@ -93,7 +94,7 @@ class EmployeeController extends Controller
                 'employee_status' => 'nullable|string|in:active,on_leave,terminated',
                 'work_location' => 'nullable|string|max:255',
                 'join_date' => 'nullable|date',
-                
+
                 // Financial Information
                 'salary' => 'nullable|numeric|min:0',
                 'salary_currency' => 'nullable|string|in:TZS,USD',
@@ -107,13 +108,13 @@ class EmployeeController extends Controller
                 'commission_currency' => 'nullable|string|in:TZS,USD',
                 'allowances' => 'nullable|numeric|min:0',
                 'allowances_currency' => 'nullable|string|in:TZS,USD',
-                
+
                 // Other
                 'notes' => 'nullable|string',
                 'is_active' => 'nullable|boolean',
-                
+
                 // ========== ADDED: Profile Photo Upload ==========
-                'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+                'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif,bmp,webp|max:2048',
             ]);
 
             // ========== FIXED: Handle Profile Photo Upload with your folder structure ==========
@@ -123,18 +124,18 @@ class EmployeeController extends Controller
                 $path = $file->store('employee_photos', 'public');
                 $validated['profile_photo_url'] = $path;
             }
-            
+
             // Set default values
             $validated['is_active'] = $request->input('is_active', true);
             $validated['employee_status'] = $request->input('employee_status', 'active');
             $validated['productivity'] = 75;
-            
+
             // Set default currencies if not provided
             $validated['salary_currency'] = $request->input('salary_currency', 'TZS');
             $validated['bonus_currency'] = $request->input('bonus_currency', 'TZS');
             $validated['commission_currency'] = $request->input('commission_currency', 'TZS');
             $validated['allowances_currency'] = $request->input('allowances_currency', 'TZS');
-            
+
             // Initialize JSON fields
             $validated['key_performance_indicators'] = [];
             $validated['documents'] = [];
@@ -153,13 +154,13 @@ class EmployeeController extends Controller
                 'message' => 'Validation error',
                 'errors' => $e->errors()
             ], 422);
-            
+
         } catch (\Exception $e) {
             Log::error('Employee creation error: ' . $e->getMessage(), [
                 'file' => $e->getFile(),
                 'line' => $e->getLine()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error adding employee: ' . $e->getMessage()
@@ -173,7 +174,7 @@ class EmployeeController extends Controller
     public function profile(Employee $employee): View
     {
         $user = Auth::user();
-        
+
         return view('admin.employees.profile', [
             'title' => $employee->name . ' - Employee Profile',
             'user' => $user,
@@ -202,7 +203,7 @@ class EmployeeController extends Controller
                 'marital_status' => 'nullable|string|in:single,married,divorced,widowed',
                 'emergency_contact' => 'nullable|string|max:255',
                 'address' => 'nullable|string',
-                
+
                 // Employment Details
                 'department' => 'sometimes|required|string',
                 'profession' => 'sometimes|required|string',
@@ -210,10 +211,10 @@ class EmployeeController extends Controller
                 'employee_status' => 'sometimes|required|string|in:active,on_leave,terminated',
                 'work_location' => 'nullable|string|max:255',
                 'join_date' => 'nullable|date',
-                
+
                 // Work Performance
                 'productivity' => 'nullable|integer|min:0|max:100',
-                
+
                 // Financial Information
                 'salary' => 'nullable|numeric|min:0',
                 'salary_currency' => 'nullable|string|in:TZS,USD',
@@ -227,10 +228,30 @@ class EmployeeController extends Controller
                 'commission_currency' => 'nullable|string|in:TZS,USD',
                 'allowances' => 'nullable|numeric|min:0',
                 'allowances_currency' => 'nullable|string|in:TZS,USD',
-                
+
                 // Notes
                 'notes' => 'nullable|string',
             ]);
+
+            // Check if department has changed - if so, regenerate employee ID
+            if (isset($validated['department']) && $validated['department'] !== $employee->department) {
+                $deptModel = Department::where('name', $validated['department'])->first();
+                if ($deptModel) {
+                    $employeeCount = Employee::where('department', $validated['department'])->count();
+                    $nextNumber = $employeeCount + 1;
+                    $deptCode = $deptModel->code;
+                    $newEmployeeId = $deptCode . '-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+                    $validated['employee_id'] = $newEmployeeId;
+
+                    Log::info('Employee department changed, regenerating ID', [
+                        'employee_id' => $employee->id,
+                        'old_department' => $employee->department,
+                        'new_department' => $validated['department'],
+                        'old_employee_id' => $employee->employee_id,
+                        'new_employee_id' => $newEmployeeId
+                    ]);
+                }
+            }
 
             $employee->update($validated);
 
@@ -246,10 +267,10 @@ class EmployeeController extends Controller
                 'message' => 'Validation error',
                 'errors' => $e->errors()
             ], 422);
-            
+
         } catch (\Exception $e) {
             Log::error('Profile update error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error updating profile: ' . $e->getMessage()
@@ -290,7 +311,7 @@ class EmployeeController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Add KPI error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error adding KPI: ' . $e->getMessage()
@@ -309,7 +330,7 @@ class EmployeeController extends Controller
             ]);
 
             $kpis = $employee->key_performance_indicators ?? [];
-            $kpis = array_filter($kpis, function($kpi) use ($request) {
+            $kpis = array_filter($kpis, function ($kpi) use ($request) {
                 return $kpi['id'] !== $request->kpi_id;
             });
 
@@ -323,7 +344,7 @@ class EmployeeController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Remove KPI error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error removing KPI: ' . $e->getMessage()
@@ -350,20 +371,20 @@ class EmployeeController extends Controller
             $documentFile = $request->file('document');
             $originalName = $documentFile->getClientOriginalName();
             $fileName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
-            
+
             // Create directory if it doesn't exist
             $directory = 'employee_documents/' . $employee->id;
             if (!Storage::disk('public')->exists($directory)) {
                 Storage::disk('public')->makeDirectory($directory);
             }
-            
+
             // Store file
             $path = $documentFile->storeAs($directory, $fileName, 'public');
-            
+
             if (!$path) {
                 throw new \Exception('Failed to store file');
             }
-            
+
             Log::info('File stored successfully', ['path' => $path]);
 
             // Get file extension for MIME type
@@ -381,7 +402,7 @@ class EmployeeController extends Controller
                 'size' => $documentFile->getSize(),
                 'type' => $this->getMimeTypeFromExtension($extension),
             ];
-            
+
             $documents = $employee->documents ?? [];
             $documents[] = $newDocument;
 
@@ -407,7 +428,7 @@ class EmployeeController extends Controller
             Log::error('Upload document error: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error uploading document: ' . $e->getMessage()
@@ -427,27 +448,27 @@ class EmployeeController extends Controller
             ]);
 
             $documents = $employee->documents ?? [];
-            
+
             foreach ($documents as $document) {
                 if (isset($document['id']) && $document['id'] == $documentId) {
                     if (isset($document['path'])) {
                         $fullPath = storage_path('app/public/' . $document['path']);
-                        
+
                         Log::info('Checking document path', [
                             'stored_path' => $document['path'],
                             'full_path' => $fullPath,
                             'exists' => file_exists($fullPath)
                         ]);
-                        
+
                         if (file_exists($fullPath)) {
                             $fileName = $document['original_name'] ?? $document['file_name'] ?? 'document';
                             $mimeType = $document['type'] ?? $this->getMimeTypeFromExtension(pathinfo($fullPath, PATHINFO_EXTENSION));
-                            
+
                             Log::info('Serving document', [
                                 'file_name' => $fileName,
                                 'mime_type' => $mimeType
                             ]);
-                            
+
                             return response()->file($fullPath, [
                                 'Content-Type' => $mimeType,
                                 'Content-Disposition' => 'inline; filename="' . $fileName . '"'
@@ -459,10 +480,10 @@ class EmployeeController extends Controller
                     }
                 }
             }
-            
+
             Log::error('Document not found in database', ['document_id' => $documentId]);
             abort(404, 'Document not found in database');
-            
+
         } catch (\Exception $e) {
             Log::error('View document error: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
@@ -483,7 +504,7 @@ class EmployeeController extends Controller
 
             $documents = $employee->documents ?? [];
             $documentFound = false;
-            
+
             foreach ($documents as $index => $document) {
                 if (isset($document['id']) && $document['id'] == $request->document_id) {
                     if (isset($document['path'])) {
@@ -494,14 +515,14 @@ class EmployeeController extends Controller
                     break;
                 }
             }
-            
+
             if (!$documentFound) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Document not found'
                 ], 404);
             }
-            
+
             // Re-index array
             $documents = array_values($documents);
 
@@ -515,7 +536,7 @@ class EmployeeController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Remove document error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error removing document: ' . $e->getMessage()
@@ -562,9 +583,9 @@ class EmployeeController extends Controller
             $data['profileImageData'] = $imageData;
 
             $pdf = Pdf::loadView('admin.employees.export.pdf', $data);
-            
+
             return $pdf->download($employee->name . '-profile-' . date('Y-m-d') . '.pdf');
-            
+
         } catch (\Exception $e) {
             Log::error('PDF export error: ' . $e->getMessage());
             return response()->json([
@@ -581,7 +602,7 @@ class EmployeeController extends Controller
     {
         try {
             return Excel::download(new EmployeeExport($employee), $employee->name . '-profile-' . date('Y-m-d') . '.xlsx');
-            
+
         } catch (\Exception $e) {
             Log::error('Excel export error: ' . $e->getMessage());
             return response()->json([
@@ -609,11 +630,11 @@ class EmployeeController extends Controller
                     'kpis_summary' => count($employee->key_performance_indicators ?? [])
                 ]
             ];
-            
+
             $pdf = Pdf::loadView('admin.employees.report.comprehensive', $data);
-            
+
             return $pdf->download($employee->name . '-comprehensive-report-' . date('Y-m-d') . '.pdf');
-            
+
         } catch (\Exception $e) {
             Log::error('Report generation error: ' . $e->getMessage());
             return response()->json([
@@ -640,7 +661,7 @@ class EmployeeController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Toggle status error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error toggling status: ' . $e->getMessage()
@@ -654,7 +675,7 @@ class EmployeeController extends Controller
     public function show(Employee $employee): View
     {
         $user = Auth::user();
-        
+
         return view('admin.employees.show', [
             'title' => 'Employee Details - ' . $employee->name,
             'user' => $user,
@@ -669,7 +690,7 @@ class EmployeeController extends Controller
     public function edit(Employee $employee): View
     {
         $user = Auth::user();
-        
+
         return view('admin.employees.edit', [
             'title' => 'Edit Employee - ' . $employee->name,
             'user' => $user,
@@ -696,14 +717,14 @@ class EmployeeController extends Controller
                 'marital_status' => 'nullable|string|in:single,married,divorced,widowed',
                 'emergency_contact' => 'nullable|string|max:255',
                 'address' => 'nullable|string',
-                
+
                 'department' => 'required|string',
                 'profession' => 'required|string',
                 'employment_type' => 'required|string|in:full_time,part_time,contract,internship',
                 'employee_status' => 'nullable|string|in:active,on_leave,terminated',
                 'work_location' => 'nullable|string|max:255',
                 'join_date' => 'nullable|date',
-                
+
                 'salary' => 'nullable|numeric|min:0',
                 'salary_currency' => 'nullable|string|in:TZS,USD',
                 'bank_name' => 'nullable|string|max:100',
@@ -716,28 +737,28 @@ class EmployeeController extends Controller
                 'commission_currency' => 'nullable|string|in:TZS,USD',
                 'allowances' => 'nullable|numeric|min:0',
                 'allowances_currency' => 'nullable|string|in:TZS,USD',
-                
+
                 'productivity' => 'nullable|integer|min:0|max:100',
-                
+
                 'notes' => 'nullable|string',
-                
-                'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+
+                'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif,bmp,webp|max:2048',
             ]);
 
             if ($request->hasFile('profile_photo')) {
                 $file = $request->file('profile_photo');
-                
+
                 if ($employee->profile_photo_url && strpos($employee->profile_photo_url, 'storage/') !== false) {
                     $oldPhoto = str_replace(asset('storage/'), '', $employee->profile_photo_url);
                     if (Storage::disk('public')->exists($oldPhoto)) {
                         Storage::disk('public')->delete($oldPhoto);
                     }
                 }
-                
+
                 $path = $file->store('employee_photos', 'public');
                 $validated['profile_photo_url'] = $path;
             }
-            
+
             if (!empty($validated['date_of_birth'])) {
                 $validated['date_of_birth'] = date('Y-m-d', strtotime($validated['date_of_birth']));
             }
@@ -762,7 +783,7 @@ class EmployeeController extends Controller
                 'message' => 'Validation error',
                 'errors' => $e->errors()
             ], 422);
-            
+
         } catch (\Exception $e) {
             Log::error('Employee update error: ' . $e->getMessage());
             return response()->json([
@@ -795,7 +816,7 @@ class EmployeeController extends Controller
             'ppt' => 'application/vnd.ms-powerpoint',
             'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         ];
-        
+
         $extension = strtolower($extension);
         return $mimeTypes[$extension] ?? 'application/octet-stream';
     }
@@ -806,16 +827,24 @@ class EmployeeController extends Controller
     public function generateEmployeeId($departmentName): JsonResponse
     {
         try {
+            // Decode the department name from URL encoding
+            $departmentName = urldecode($departmentName);
+            
             // Get department by name
             $deptModel = Department::where('name', $departmentName)->first();
-            
+
             if (!$deptModel) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Department not found'
-                ], 404);
+                // Try case-insensitive search
+                $deptModel = Department::whereRaw('LOWER(name) = ?', [strtolower($departmentName)])->first();
+                
+                if (!$deptModel) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Department not found: ' . $departmentName
+                    ], 404);
+                }
             }
-            
+
             // Get the department code
             $deptCode = $deptModel->code;
             
@@ -826,11 +855,13 @@ class EmployeeController extends Controller
             $nextNumber = $employeeCount + 1;
             $employeeId = $deptCode . '-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
             
+            Log::info('Generated employee ID: ' . $employeeId . ' for department: ' . $deptModel->name);
+            
             return response()->json([
                 'success' => true,
                 'employee_id' => $employeeId
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Employee ID generation error: ' . $e->getMessage());
             return response()->json([
@@ -852,28 +883,28 @@ class EmployeeController extends Controller
                     Storage::disk('public')->delete($oldPhoto);
                 }
             }
-            
+
             $documents = $employee->documents ?? [];
             foreach ($documents as $document) {
                 if (isset($document['path']) && Storage::disk('public')->exists($document['path'])) {
                     Storage::disk('public')->delete($document['path']);
                 }
             }
-            
+
             $employeeDocumentFolder = 'employee_documents/' . $employee->id;
             if (Storage::disk('public')->exists($employeeDocumentFolder)) {
                 Storage::disk('public')->deleteDirectory($employeeDocumentFolder);
             }
-            
+
             $employeeName = $employee->name;
-            
+
             $employee->delete();
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Employee "' . $employeeName . '" has been deleted successfully.'
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Employee deletion error: ' . $e->getMessage());
             return response()->json([
